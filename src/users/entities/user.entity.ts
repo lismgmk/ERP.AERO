@@ -1,6 +1,7 @@
 import { Entity, Column, PrimaryColumn, OneToMany } from 'typeorm';
 import { File } from '../../files/entities/file.entity';
 import { Token } from '../../auth/entities/token.entity';
+import { Device } from '../../auth/entities/device.entity';
 import { Exclude } from 'class-transformer';
 
 @Entity()
@@ -21,9 +22,12 @@ export class User {
   @Column({ default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  @OneToMany(() => File, file => file.user)
+  @OneToMany(() => File, (file) => file.user)
   files: File[];
 
-  @OneToMany(() => Token, token => token.user)
+  @OneToMany(() => Token, (token) => token.user)
   tokens: Token[];
+
+  @OneToMany(() => Device, (device) => device.user)
+  devices: Device[];
 }

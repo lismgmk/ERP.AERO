@@ -1,5 +1,6 @@
 import { Entity, Column, PrimaryColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Device } from './device.entity';
 
 @Entity()
 export class Token {
@@ -18,7 +19,11 @@ export class Token {
   @Column({ default: () => 'CURRENT_TIMESTAMP' })
   createdAt: Date;
 
-  @ManyToOne(() => User, user => user.tokens, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.tokens, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'userId' })
   user: User;
+
+  @ManyToOne(() => Device, (device) => device.tokens, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'deviceId' })
+  device: Device;
 }

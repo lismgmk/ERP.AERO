@@ -1,10 +1,11 @@
-import { 
-  Controller, 
-  Post, 
-  Body, 
-  UseGuards, 
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
   Get,
-  UnauthorizedException 
+  UnauthorizedException,
+  Headers,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { SignInDto } from './dto/signin.dto';
@@ -19,23 +20,66 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('signin')
-  async signIn(@Body() signInDto: SignInDto) {
-    return this.authService.signIn(signInDto);
+  async signIn(
+    @Body() signInDto: SignInDto,
+    @Headers('x-device-id') deviceId: string,
+    @Headers('x-device-name') deviceName: string,
+    @Headers('x-device-type') deviceType?: string
+  ) {
+    if (!deviceId || !deviceName) {
+      throw new UnauthorizedException('Device information is required');
+    }
+
+    return this.authService.signIn(signInDto, {
+      deviceId,
+      deviceName,
+      deviceType,
+    });
   }
 
   @Post('signin/new_token')
-  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
-    return this.authService.refreshToken(refreshTokenDto.refreshToken);
+  async refreshToken(
+    @Body() refreshTokenDto: RefreshTokenDto,
+    @Headers('x-device-id') deviceId: string
+  ) {
+    if (!deviceId) {
+      throw new UnauthorizedException('Device ID is required');
+    }
+
+    return this.authService.refreshToken(
+      refreshTokenDto.refreshToken,
+      deviceId
+    );
   }
 
   @Post('signup')
-  async signUp(@Body() createUserDto: CreateUserDto) {
-    return this.authService.signUp(createUserDto);
+  async signUp(
+    @Body() createUserDto: CreateUserDto,
+    @Headers('x-device-id') deviceId: string,
+    @Headers('x-device-name') deviceName: string,
+    @Headers('x-device-type') deviceType?: string
+  ) {
+    if (!deviceId || !deviceName) {
+      throw new UnauthorizedException('Device information is required');
+    }
+
+    return this.authService.signUp(createUserDto, {
+      deviceId,
+      deviceName,
+      deviceType,
+    });
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('logout')
-  async logout(@GetUser() user: User) {
-    return this.authService.logout(user);
+  async logout(
+    @GetUser() user: User,
+    @Headers('x-device-id') deviceId: string
+  ) {
+    if (!deviceId) {
+      throw new UnauthorizedException('Device ID is required');
+    }
+
+    return this.authService.logout(user, deviceId);
   }
 }

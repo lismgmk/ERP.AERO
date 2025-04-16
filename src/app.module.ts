@@ -14,6 +14,7 @@ import { databaseConfig } from './config/database.config';
 import { jwtConfig } from './config/jwt.config';
 import { User } from './users/entities/user.entity';
 import { Token } from './auth/entities/token.entity';
+import { Device } from './auth/entities/device.entity';
 import { File } from './files/entities/file.entity';
 
 @Module({
@@ -23,36 +24,23 @@ import { File } from './files/entities/file.entity';
       isGlobal: true,
       load: [databaseConfig, jwtConfig],
     }),
-    
+
     // Database
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
-      useFactory: (configService: ConfigService) => {
-        const dbUrl = configService.get('database.url');
-        if (dbUrl) {
-          return {
-            type: 'postgres',
-            url: dbUrl,
-            entities: [User, Token, File],
-            synchronize: true, // Set to false in production
-            ssl: false
-          };
-        } else {
-          return {
-            type: 'postgres',
-            host: configService.get('database.host'),
-            port: configService.get('database.port'),
-            username: configService.get('database.username'),
-            password: configService.get('database.password'),
-            database: configService.get('database.database'),
-            entities: [User, Token, File],
-            synchronize: true, // Set to false in production
-          };
-        }
-      },
+      useFactory: (configService: ConfigService) => ({
+        type: 'postgres',
+        host: configService.get('database.host'),
+        port: configService.get('database.port'),
+        username: configService.get('database.username'),
+        password: configService.get('database.password'),
+        database: configService.get('database.database'),
+        entities: [User, Token, Device, File],
+        synchronize: true, // Set to false in production
+      }),
     }),
-    
+
     // JWT
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -62,7 +50,7 @@ import { File } from './files/entities/file.entity';
         signOptions: { expiresIn: '10m' },
       }),
     }),
-    
+
     // File Upload
     MulterModule.register({
       storage: diskStorage({
@@ -73,7 +61,7 @@ import { File } from './files/entities/file.entity';
         },
       }),
     }),
-    
+
     // Feature modules
     UsersModule,
     AuthModule,

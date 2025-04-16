@@ -1,9 +1,9 @@
-import { 
-  Injectable, 
-  UnauthorizedException, 
+import {
+  Injectable,
+  UnauthorizedException,
   ConflictException,
   NotFoundException,
-  InternalServerErrorException
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -15,6 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 import { Token } from './entities/token.entity';
+import { Device } from './entities/device.entity';
 import { SignInDto } from './dto/signin.dto';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { JwtPayload } from './jwt-payload.interface';
@@ -24,15 +25,30 @@ export class AuthService {
   constructor(
     @InjectRepository(Token)
     private tokenRepository: Repository<Token>,
+    @InjectRepository(Device)
+    private deviceRepository: Repository<Device>,
     private usersService: UsersService,
     private jwtService: JwtService,
-    private configService: ConfigService,
+    private configService: ConfigService
   ) {}
 
-  async signUp(createUserDto: CreateUserDto) {
+  async signUp(
+    createUserDto: CreateUserDto,
+    deviceInfo: { deviceId: string; deviceName: string; deviceType?: string }
+  ) {
     try {
       const user = await this.usersService.create(createUserDto);
-      return this.generateTokens(user);
+
+      // Create default device for new user
+      const device = this.deviceRepository.create({
+        deviceId: deviceInfo.deviceId,
+        deviceName: deviceInfo.deviceName,
+        deviceType: deviceInfo.deviceType,
+        user,
+      });
+      await this.deviceRepository.save(device);
+
+      return this.generateTokens(user, device);
     } catch (error) {
       if (error instanceof ConflictException) {
         throw error;
@@ -41,7 +57,10 @@ export class AuthService {
     }
   }
 
-  async signIn(signInDto: SignInDto) {
+  async signIn(
+    signInDto: SignInDto,
+    deviceInfo: { deviceId: string; deviceName: string; deviceType?: string }
+  ) {
     const { id, password } = signInDto;
     const user = await this.usersService.findByIdOrEmail(id);
 
@@ -54,15 +73,30 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    return this.generateTokens(user);
+    // Find or create device
+    let device = await this.deviceRepository.findOne({
+      where: { deviceId: deviceInfo.deviceId, user: { id: user.id } },
+    });
+
+    if (!device) {
+      device = this.deviceRepository.create({
+        deviceId: deviceInfo.deviceId,
+        deviceName: deviceInfo.deviceName,
+        deviceType: deviceInfo.deviceType,
+        user,
+      });
+      await this.deviceRepository.save(device);
+    }
+
+    return this.generateTokens(user, device);
   }
 
-  async refreshToken(refreshToken: string) {
+  async refreshToken(refreshToken: string, deviceId: string) {
     try {
       // Find the token in the database
       const tokenEntity = await this.tokenRepository.findOne({
-        where: { refreshToken },
-        relations: ['user'],
+        where: { refreshToken, device: { deviceId } },
+        relations: ['user', 'device'],
       });
 
       if (!tokenEntity || tokenEntity.isRevoked) {
@@ -75,16 +109,16 @@ export class AuthService {
       }
 
       // Generate new tokens
-      return this.generateTokens(tokenEntity.user);
+      return this.generateTokens(tokenEntity.user, tokenEntity.device);
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
 
-  async logout(user: User) {
-    // Revoke all tokens for the user
+  async logout(user: User, deviceId: string) {
+    // Revoke tokens for specific device
     await this.tokenRepository.update(
-      { user: { id: user.id }, isRevoked: false },
+      { user: { id: user.id }, device: { deviceId }, isRevoked: false },
       { isRevoked: true }
     );
 
@@ -92,57 +126,63 @@ export class AuthService {
   }
 
   async validateUser(payload: JwtPayload): Promise<User> {
-    const { sub, jti } = payload;
-    
+    const { sub, jti, deviceId } = payload;
+
     // Find the user
     const user = await this.usersService.findOne(sub);
     if (!user) {
       throw new UnauthorizedException();
     }
-    
+
     // Verify the token is not revoked
-    const token = await this.tokenRepository.findOne({ 
-      where: { id: jti, isRevoked: false } 
+    const token = await this.tokenRepository.findOne({
+      where: {
+        id: jti,
+        isRevoked: false,
+        device: { deviceId },
+      },
     });
-    
+
     if (!token) {
       throw new UnauthorizedException('Token has been revoked');
     }
-    
+
     return user;
   }
 
-  private async generateTokens(user: User) {
+  private async generateTokens(user: User, device: Device) {
     // Create token ID
     const tokenId = uuidv4();
-    
+
     // Create JWT payload
     const payload: JwtPayload = {
       sub: user.id,
       jti: tokenId,
+      deviceId: device.deviceId,
     };
-    
+
     // Sign JWT token
     const accessToken = this.jwtService.sign(payload);
-    
+
     // Create refresh token
     const refreshToken = uuidv4();
-    
+
     // Set refresh token expiration date
     const expiresIn = this.configService.get('jwt.refreshExpiresIn');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
-    
+
     // Save refresh token to database
     const token = this.tokenRepository.create({
       id: tokenId,
       refreshToken,
       expiresAt,
       user,
+      device,
     });
-    
+
     await this.tokenRepository.save(token);
-    
+
     return {
       accessToken,
       refreshToken,

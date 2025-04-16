@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: jwt_storage_app
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file:
+      - .env.prod
+    ports:
+      - '5000:5000'
+    volumes:
+      - uploads:/app/uploads
+    networks:
+      - jwt_network
+    healthcheck:
+      test: ['CMD', 'curl', '-f', 'http://jwt_storage_app:5000/api/health']
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: jwt_storage_db
+    restart: always
+    env_file:
+      - .env.prod
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - jwt_network
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U postgres -d postgres']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: jwt_storage_pgadmin
+    restart: always
+    env_file:
+      - .env.prod
+    ports:
+      - '5050:80'
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - jwt_network
+
+volumes:
+  postgres_data:
+  uploads:
+
+networks:
+  jwt_network:
+    driver: bridge
