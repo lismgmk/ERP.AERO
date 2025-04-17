@@ -1,99 +1,101 @@
-# NestJS API Service
+# JwtSecureStorage
 
-A RESTful API service built with NestJS framework that provides JWT authentication and file management capabilities.
+Сервис для безопасного хранения и управления JWT токенами с использованием NestJS.
 
-## Features
+## Описание
 
-- User authentication with JWT tokens
-  - Signup: Create a new user account
-  - Signin: Authenticate using credentials and receive tokens
-  - Token refresh: Get new access tokens using refresh tokens
-  - Logout: Revoke tokens for security
-- File management
-  - Upload: Upload files to the server
-  - List: Get paginated lists of files
-  - Info: Get detailed information about files
-  - Download: Retrieve files from the server
-  - Update: Replace existing files
-  - Delete: Remove files from the server
-- Security
-  - JWT authentication
-  - Token revocation
-  - Multiple device login support
-  - Password hashing
+JwtSecureStorage - это сервис, который предоставляет API для:
 
-## API Endpoints
+- Аутентификации пользователей
+- Управления JWT токенами
+- Безопасного хранения данных
+- Работы с сессиями
 
-### Authentication
+## Требования
 
-- `POST /api/signup`: Register a new user
-  - Body: `{ "id": "email@example.com", "password": "yourpassword" }`
-  - Returns: JWT access token and refresh token
+- Node.js (версия 14 или выше)
+- PostgreSQL
+- Docker и Docker Compose (опционально, для контейнеризации)
 
-- `POST /api/signin`: Login with existing credentials
-  - Body: `{ "id": "email@example.com", "password": "yourpassword" }`
-  - Returns: JWT access token and refresh token
+## Установка и запуск
 
-- `POST /api/signin/new_token`: Refresh the access token
-  - Body: `{ "refreshToken": "your-refresh-token" }`
-  - Returns: New JWT access token and refresh token
+### Production
 
-- `GET /api/logout`: Logs out the current user (revokes token)
-  - Requires: Authorization header with Bearer token
-  - Returns: Success message
+Для запуска через Docker:
 
-- `GET /api/info`: Gets current user information
-  - Requires: Authorization header with Bearer token
-  - Returns: User information
+1. Настройте переменные окружения в `.env.prod`
+2. Соберите и запустите контейнеры:
 
-### File Management
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
 
-- `POST /api/file/upload`: Upload a new file
-  - Requires: Authorization header, multipart form data with file
-  - Returns: File information
+### Управление через Makefile
 
-- `GET /api/file/list`: Get a paginated list of files
-  - Requires: Authorization header
-  - Query parameters: `list_size` (default: 10), `page` (default: 1)
-  - Returns: List of files with pagination metadata
+Для удобства управления сервисом доступны следующие команды:
 
-- `GET /api/file/:id`: Get file information
-  - Requires: Authorization header
-  - Returns: File metadata
+```bash
+# Запуск в production режиме
+make prod-up
 
-- `GET /api/file/download/:id`: Download a file
-  - Requires: Authorization header
-  - Returns: The file content
+# Остановка production сервиса
+make prod-down
 
-- `PUT /api/file/update/:id`: Update an existing file
-  - Requires: Authorization header, multipart form data with file
-  - Returns: Updated file information
+# Просмотр логов
+make prod-logs
 
-- `DELETE /api/file/delete/:id`: Delete a file
-  - Requires: Authorization header
-  - Returns: Success message
+# Пересборка контейнеров
+make prod-build
 
-## Authentication Details
+# Полная очистка (включая тома)
+make prod-clean
+```
 
-- Access tokens are valid for 10 minutes
-- Refresh tokens are valid for 7 days
-- Tokens are automatically revoked on logout
-- Each user can have multiple active sessions (different devices)
+### Локальная разработка
 
-## Technical Implementation
+1. Установите зависимости:
 
-- NestJS framework for API development
-- TypeORM for database interaction with PostgreSQL
-- Passport.js for authentication strategies
-- Multer for file upload handling
-- JWT for token-based authentication
-- bcrypt for password hashing
+```bash
+npm install
+```
 
-## Environment Variables
+2. Настройка окружения:
 
-- `DATABASE_URL`: PostgreSQL connection string
-- `JWT_SECRET`: Secret key for JWT token signing
+   - Скопируйте `.env.example` в `.env` для разработки
+   - Скопируйте `.env.prod.example` в `.env.prod` для продакшена
+   - Настройте переменные окружения в соответствии с вашим окружением
 
-## Running the Application
+3. Запуск базы данных:
 
-The application runs on port 5000 with the `/api` prefix for all endpoints.
+```bash
+docker compose up -d --build
+```
+
+4. Запуск приложения в режиме разработки:
+
+```bash
+npm run start:dev
+```
+
+## API Документация
+
+После запуска сервиса, Swagger документация доступна по адресу:
+
+```
+http://localhost:5000/api/docs
+```
+
+Для тестирования API также доступна Postman коллекция в директории `postman/`. Вы можете импортировать её в Postman для удобного тестирования эндпоинтов.
+
+## Структура проекта
+
+```
+JwtSecureStorage/
+├── src/                    # Исходный код приложения
+├── test/                   # Тесты
+├── postman/               # Postman коллекция
+├── docker-compose.yml     # Конфигурация Docker для разработки
+├── docker-compose.prod.yml # Конфигурация Docker для production
+├── Makefile               # Утилиты для управления проектом
+└── README.md              # Документация проекта
+```

@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
@@ -9,6 +9,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { UsersModule } from '../users/users.module';
 import { Token } from './entities/token.entity';
 import { Device } from './entities/device.entity';
+import { DeviceInfoMiddleware } from './middleware/device-info.middleware';
 
 @Module({
   imports: [
@@ -30,4 +31,8 @@ import { Device } from './entities/device.entity';
   providers: [AuthService, JwtStrategy],
   exports: [AuthService, JwtStrategy, PassportModule],
 })
-export class AuthModule {}
+export class AuthModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(DeviceInfoMiddleware).forRoutes(AuthController);
+  }
+}

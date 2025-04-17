@@ -108,6 +108,9 @@ export class AuthService {
         throw new UnauthorizedException('Refresh token expired');
       }
 
+      // Delete the old token
+      await this.tokenRepository.delete({ id: tokenEntity.id });
+
       // Generate new tokens
       return this.generateTokens(tokenEntity.user, tokenEntity.device);
     } catch (error) {
@@ -116,11 +119,18 @@ export class AuthService {
   }
 
   async logout(user: User, deviceId: string) {
-    // Revoke tokens for specific device
-    await this.tokenRepository.update(
-      { user: { id: user.id }, device: { deviceId }, isRevoked: false },
-      { isRevoked: true }
-    );
+    // Find tokens for specific device
+    const tokens = await this.tokenRepository.find({
+      where: {
+        user: { id: user.id },
+        device: { deviceId },
+      },
+    });
+
+    // Remove found tokens
+    if (tokens.length > 0) {
+      await this.tokenRepository.remove(tokens);
+    }
 
     return { message: 'Logout successful' };
   }
